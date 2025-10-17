@@ -945,7 +945,7 @@ const SwapForm = () => {
             <a
               className="underline"
               target="_blank"
-              href={`https://chainscan.0g.ai/tx/${txHash}`}
+              href={`https://basescan.org/tx/${txHash}`}
             >
               {txHash.slice(0, 8)}...{txHash.slice(-8)}
             </a>
@@ -956,7 +956,7 @@ const SwapForm = () => {
         mixpanel.track("0G Swap Success", {
           total_transactions: transactions.length,
           tx_signature: txHash,
-          tx_url: `https://chainscan.0g.ai/tx/${txHash}`,
+          tx_url: `https://basescan.org/tx/${txHash}`,
           timestamp: new Date().toISOString(),
         });
       }

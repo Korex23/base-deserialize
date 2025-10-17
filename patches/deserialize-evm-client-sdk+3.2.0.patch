@@ -1,0 +1,161 @@
+diff --git a/node_modules/deserialize-evm-client-sdk/src/Deserialize.ts b/node_modules/deserialize-evm-client-sdk/src/Deserialize.ts
+index df6b488..bd757d9 100644
+--- a/node_modules/deserialize-evm-client-sdk/src/Deserialize.ts
++++ b/node_modules/deserialize-evm-client-sdk/src/Deserialize.ts
+@@ -7,6 +7,7 @@ import pools from "./helpers/data/poolsDataFetched.json";
+ import { defaultA0GITokenAddress } from "./constants/addresses";
+ import { _swap } from "./helpers/swap";
+ import { IDEXID, IQuoteReturn } from ".";
++import { erc20ABI } from "./helpers/swap";
+ 
+ export class _DeserializeEVM {
+   web3: import("web3").default | null;
+@@ -176,49 +177,81 @@ export class _DeserializeEVM {
+    * @returns [success,error] - use if(error) - to check for any errors and handle gracefully
+    */
+ 
+-  async swap({
+-    dexID,
+-    quote,
+-    feeRate,
+-  }: {
+-    dexID: IDEXID;
+-    quote: IQuoteReturn;
+-    feeRate: string;
+-  }) {
+-    try{this.loading = true;
+-      if (!this.web3) {
+-        this.loading = false;
+-        throw new Error("Web3 is not initialized");
+-      }
+-      console.log({addr:this.address,web3:this.web3})
+-      if(!this.address){
+-        this.address = (await this.web3.eth.requestAccounts())[0]
+-      }
++async swap({
++  dexID,
++  quote,
++  feeRate,
++}: {
++  dexID: IDEXID;
++  quote: IQuoteReturn;
++  feeRate: string;
++}) {
++  try {
++    this.loading = true;
++
++    if (!this.web3) {
++      this.loading = false;
++      throw new Error("Web3 is not initialized");
++    }
++
++    if (!this.address) {
++      this.address = (await this.web3.eth.requestAccounts())[0];
++    }
+     if (!this.address) throw new Error("Wallet not connected");
+-    const txs = await _swap(dexID, quote, this.address, feeRate) ;
+-      let res
+-   for (let i = 0; i < txs.transactions.length; i++) {
+-    const tx = txs.transactions[i];
+-  
+-    // estimate gas dynamically
+-    const gas = await this.web3.eth.estimateGas(tx);
+-    // optionally fetch gas price
+-    const gasPrice = await this.web3.eth.getGasPrice();
+-  
+-     res = await this.web3.eth.sendTransaction({
+-      ...tx,
+-      gas,
+-      gasPrice
+-    });
+ 
+-  }
++    // 1. Get swap transactions from your API
++    const txs = await _swap(dexID, quote, this.address, feeRate);
++    if (!txs?.transactions?.length) {
++      throw new Error("No transactions returned from swap endpoint");
++    }
+ 
+-    this.loading = false;
++    let res;
++
++    // 2. Approve first
++    const firstTx = txs.transactions[0];
++    const router = firstTx.to; // router is always the "to" in swap tx
++    const tokenIn = quote.path[0].tokenA; // input token
++    const amountIn = quote.amountInRaw; // amount to approve
++
++    const tokenContract = new this.web3.eth.Contract(erc20ABI as any, tokenIn);
++
++    const allowanceRaw = await tokenContract.methods
++      .allowance(this.address, router)
++      .call();
++
++    const allowance = typeof allowanceRaw === "string" ? allowanceRaw : "0";
++    const amountInStr = typeof amountIn === "string" || typeof amountIn === "number" ? amountIn.toString() : "0";
++
++    if (BigInt(allowance) < BigInt(amountInStr)) {
++      console.log("Running approve...");
++      await tokenContract.methods
++        .approve(router, amountIn)
++        .send({ from: this.address });
++    } else {
++      console.log("Allowance sufficient, skipping approve");
++    }
++
++    // 3. Send swap transactions
++    for (let i = 0; i < txs.transactions.length; i++) {
++      const tx = txs.transactions[i];
+ 
+-  return [res,null]
+-}catch(err:any){
+-  console.log({err})
+-return [null,err.message]
++      const gas = await this.web3.eth.estimateGas({ ...tx, from: this.address });
++      const gasPrice = await this.web3.eth.getGasPrice();
++
++      res = await this.web3.eth.sendTransaction({
++        ...tx,
++        from: this.address,
++        gas,
++        gasPrice,
++      });
+     }
++
++    this.loading = false;
++    return [res, null];
++  } catch (err: any) {
++    this.loading = false;
++    console.log({ err });
++    return [null, err.message];
+   }
+ }
++}
+diff --git a/node_modules/deserialize-evm-client-sdk/src/helpers/swap.ts b/node_modules/deserialize-evm-client-sdk/src/helpers/swap.ts
+index e0e5ee6..dddfe56 100644
+--- a/node_modules/deserialize-evm-client-sdk/src/helpers/swap.ts
++++ b/node_modules/deserialize-evm-client-sdk/src/helpers/swap.ts
+@@ -1,7 +1,7 @@
+ import { IDEXID, IQuoteReturn } from "..";
+ import { swap_endpoint } from "../constants/endpoints";
+ 
+-const erc20ABI = [
++export const erc20ABI = [
+   {
+     constant: false,
+     inputs: [
+@@ -35,11 +35,13 @@ export const _swap = async (
+   console.log({address})
+   if (!address) throw new Error("No wallet connected");
+ 
++  const lastIndex = quote.path.length - 1;
++
+   const body = {
+     publicKey: address,
+     quote: {
+       tokenA: quote.path[0].tokenA,
+-      tokenB: quote.path[0].tokenB,
++      tokenB: quote.path[lastIndex].tokenB,
+       amountIn: quote.amountInRaw,
+       amountOut: quote.minAmountOut,
+       tokenPrice: quote.price,

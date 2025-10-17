@@ -1,0 +1,96 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Solana
+model SolanaOhlc {
+  timestamp BigInt    @id
+  open      Float
+  high      Float
+  low       Float
+  close     Float
+
+  @@map("solana_ohlc")
+}
+
+// WIF
+model WifoOhlc {
+  timestamp BigInt    @id
+  open      Float
+  high      Float
+  low       Float
+  close     Float
+
+  @@map("wif_ohlc")
+}
+
+// tUSD
+model TUsdOhlc {
+  timestamp BigInt    @id
+  open      Float
+  high      Float
+  low       Float
+  close     Float
+
+  @@map("tusd_ohlc")
+}
+
+// ORCA
+model OrcaOhlc {
+  timestamp BigInt    @id
+  open      Float
+  high      Float
+  low       Float
+  close     Float
+
+  @@map("orca_ohlc")
+}
+
+// tETH
+model TEthOhlc {
+  timestamp BigInt    @id
+  open      Float
+  high      Float
+  low       Float
+  close     Float
+
+  @@map("teth_ohlc")
+}
+
+// USDC
+model UsdcOhlc {
+  timestamp BigInt    @id
+  open      Float
+  high      Float
+  low       Float
+  close     Float
+
+  @@map("usdc_ohlc")
+}
+
+// BITZ
+model BitzOhlc {
+  timestamp BigInt    @id
+  open      Float
+  high      Float
+  low       Float
+  close     Float
+
+  @@map("bitz_ohlc")
+}
+
+// ETHERUEM
+model EthereumOhlc {
+  timestamp BigInt    @id
+  open      Float
+  high      Float
+  low       Float
+  close     Float
+
+  @@map("ethereum_ohlc")
+}

@@ -52,7 +52,7 @@ const SelectedTokens = ({
       <TokenCard className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <img
-            src={sell.logo || "/tokens/OG.png"}
+            src={sell.logo || "/tokens/base.png"}
             alt={sell.symbol}
             className="object-cover size-10 block rounded-full"
             sizes="(max-width: 768px) 2.5rem, 2.5rem"
@@ -94,7 +94,7 @@ const SelectedTokens = ({
         {/* Left side with logo and details */}
         <div className="flex items-center gap-4">
           <img
-            src={buy.logo || "/tokens/OG.png"}
+            src={buy.logo || "/tokens/base.png"}
             alt={buy.symbol}
             className="object-cover size-10 block rounded-full"
             sizes="(max-width: 768px) 2.5rem, 2.5rem"

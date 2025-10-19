@@ -80,7 +80,7 @@ const TokenItem: React.FC<TokenItemProps> = ({
     >
       <div className="token-info">
         <TokenImage
-          src={asset.logo || "/tokens/OG.png"}
+          src={asset.logo || "/tokens/base.png"}
           alt={asset.symbol}
           loading="lazy"
         />

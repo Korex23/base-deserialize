@@ -3,7 +3,7 @@ export const KNOWN_TOKENS = [
     symbol: "0G",
     address: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
     decimals: 18,
-    logo: "/tokens/OG.png",
+    logo: "/tokens/base.png",
   },
   {
     symbol: "BTC",

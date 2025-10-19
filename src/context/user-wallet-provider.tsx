@@ -32,6 +32,9 @@ interface WalletInfo {
   screenerData: ScreenerTokenResponse[];
   fetchScreenerData: () => void;
   loading: boolean;
+  addTokenToList: (token: TokenAsset) => void;
+  updateTokenList: (tokens: TokenAsset[]) => void;
+  removeTokenFromList: (address: string) => void;
 }
 
 declare global {
@@ -160,11 +163,6 @@ const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   const { isConnected, address } = useAccount();
   const { disconnect } = useDisconnect();
 
-  const { getBalance, fetchTokens } = useDeserializeEVM(
-    "0gMainnet",
-    isConnected ? address : ""
-  );
-
   useEffect(() => {
     console.log("chainId:", chainId);
     console.log("address:", address);
@@ -176,8 +174,9 @@ const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [chainId]);
 
-  const getStorageKey = () => `tokenList_0gMainnet`;
-  const getTimestampKey = () => `tokenList_0gMainnet_timestamp`;
+  const getStorageKey = () => `tokenList_base`;
+  const getTimestampKey = () => `tokenList_base_timestamp`;
+  const getCustomTokensKey = () => `customTokens_base`;
 
   const loadTokenListFromStorage = (): TokenAsset[] | null => {
     try {
@@ -186,6 +185,25 @@ const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     } catch (error) {
       console.warn("Error loading tokenList from localStorage:", error);
       return null;
+    }
+  };
+
+  const loadCustomTokensFromStorage = (): TokenAsset[] => {
+    try {
+      const stored = localStorage.getItem(getCustomTokensKey());
+      return stored ? JSON.parse(stored) : [];
+    } catch (error) {
+      console.warn("Error loading custom tokens from localStorage:", error);
+      return [];
+    }
+  };
+
+  const saveCustomTokensToStorage = (tokens: TokenAsset[]) => {
+    try {
+      localStorage.setItem(getCustomTokensKey(), JSON.stringify(tokens));
+      console.log("Custom tokens saved to localStorage");
+    } catch (error) {
+      console.warn("Error saving custom tokens to localStorage:", error);
     }
   };
 
@@ -214,6 +232,68 @@ const WalletProvider = ({ children }: { children: React.ReactNode }) => {
       return true;
     }
   };
+
+  // Add a single token to the list
+  const addTokenToList = useCallback((token: TokenAsset) => {
+    setTokenList((prevList) => {
+      // Check if token already exists
+      const exists = prevList.some(
+        (t) => t.address.toLowerCase() === token.address.toLowerCase()
+      );
+
+      if (exists) {
+        console.log("Token already exists in list:", token.symbol);
+        return prevList;
+      }
+
+      // Add token with placeholder logo if not provided
+      const tokenWithLogo = {
+        ...token,
+        logo:
+          token.logo || generatePlaceholderIcon(token.symbol, token.address),
+      };
+
+      const updatedList = [...prevList, tokenWithLogo];
+
+      // Save custom tokens separately
+      const customTokens = loadCustomTokensFromStorage();
+      const updatedCustomTokens = [...customTokens, tokenWithLogo];
+      saveCustomTokensToStorage(updatedCustomTokens);
+
+      console.log("Token added to list:", tokenWithLogo.symbol);
+      return updatedList;
+    });
+  }, []);
+
+  // Update entire token list (useful for bulk operations)
+  const updateTokenList = useCallback((tokens: TokenAsset[]) => {
+    const tokensWithLogos = tokens.map((token) => ({
+      ...token,
+      logo: token.logo || generatePlaceholderIcon(token.symbol, token.address),
+    }));
+
+    setTokenList(tokensWithLogos);
+    console.log("Token list updated with", tokens.length, "tokens");
+  }, []);
+
+  // Remove a token from the list
+  const removeTokenFromList = useCallback((address: string) => {
+    setTokenList((prevList) => {
+      const filtered = prevList.filter(
+        (t) => t.address.toLowerCase() !== address.toLowerCase()
+      );
+
+      // Update custom tokens storage
+      const customTokens = loadCustomTokensFromStorage();
+      const updatedCustomTokens = customTokens.filter(
+        (t) => t.address.toLowerCase() !== address.toLowerCase()
+      );
+      saveCustomTokensToStorage(updatedCustomTokens);
+
+      console.log("Token removed from list:", address);
+      return filtered;
+    });
+  }, []);
 
   const fetchScreenerData = async () => {
     try {
@@ -297,11 +377,22 @@ const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     async function loadTokens() {
       const cachedTokens = loadTokenListFromStorage();
+      const customTokens = loadCustomTokensFromStorage();
       const isStale = isTokenListStale();
 
       if (cachedTokens && cachedTokens.length > 0 && !isStale) {
         console.log("Loading tokens from localStorage:", cachedTokens);
-        setTokenList([NATIVE_0G_TOKEN, ...cachedTokens]);
+        // Merge cached tokens with custom tokens
+        const mergedTokens = [...cachedTokens, ...customTokens];
+        // Remove duplicates based on address
+        const uniqueTokens = mergedTokens.filter(
+          (token, index, self) =>
+            index ===
+            self.findIndex(
+              (t) => t.address.toLowerCase() === token.address.toLowerCase()
+            )
+        );
+        setTokenList([NATIVE_0G_TOKEN, ...uniqueTokens]);
         setTokenListLoaded(true);
       } else {
         if (isStale) {
@@ -312,16 +403,32 @@ const WalletProvider = ({ children }: { children: React.ReactNode }) => {
 
         try {
           const tokens = await fetchTokensFromAPI();
-          setTokenList([NATIVE_0G_TOKEN, ...tokens]);
+          const mergedTokens = [...tokens, ...customTokens];
+          const uniqueTokens = mergedTokens.filter(
+            (token, index, self) =>
+              index ===
+              self.findIndex(
+                (t) => t.address.toLowerCase() === token.address.toLowerCase()
+              )
+          );
+          setTokenList([NATIVE_0G_TOKEN, ...uniqueTokens]);
           setTokenListLoaded(true);
         } catch (error) {
           if (cachedTokens && cachedTokens.length > 0) {
             console.log("API failed, using cached tokens as fallback");
-            setTokenList([NATIVE_0G_TOKEN, ...cachedTokens]);
+            const mergedTokens = [...cachedTokens, ...customTokens];
+            const uniqueTokens = mergedTokens.filter(
+              (token, index, self) =>
+                index ===
+                self.findIndex(
+                  (t) => t.address.toLowerCase() === token.address.toLowerCase()
+                )
+            );
+            setTokenList([NATIVE_0G_TOKEN, ...uniqueTokens]);
             setTokenListLoaded(true);
           } else {
             console.error("No cached tokens available and API failed");
-            setTokenList([NATIVE_0G_TOKEN]);
+            setTokenList([NATIVE_0G_TOKEN, ...customTokens]);
             setTokenListLoaded(true);
           }
         }
@@ -338,8 +445,16 @@ const WalletProvider = ({ children }: { children: React.ReactNode }) => {
       console.log("30-minute timer: Refreshing token list...");
       try {
         const tokens = await fetchTokensFromAPI();
-        setTokenList([NATIVE_0G_TOKEN, ...tokens]);
-
+        const customTokens = loadCustomTokensFromStorage();
+        const mergedTokens = [...tokens, ...customTokens];
+        const uniqueTokens = mergedTokens.filter(
+          (token, index, self) =>
+            index ===
+            self.findIndex(
+              (t) => t.address.toLowerCase() === token.address.toLowerCase()
+            )
+        );
+        setTokenList([NATIVE_0G_TOKEN, ...uniqueTokens]);
         console.log("Token list refreshed successfully");
       } catch (error) {
         console.error("Failed to refresh token list:", error);
@@ -506,6 +621,9 @@ const WalletProvider = ({ children }: { children: React.ReactNode }) => {
         screenerData,
         fetchScreenerData,
         loading,
+        addTokenToList,
+        updateTokenList,
+        removeTokenFromList,
       }}
     >
       {children}

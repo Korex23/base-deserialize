@@ -591,7 +591,7 @@ const CryptoListingDashboard = () => {
                         <td className="px-4 py-4">
                           <div className="flex items-center gap-3">
                             <TokenImage
-                              src={item.icon || "/tokens/OG.png"}
+                              src={item.icon || "/tokens/base.png"}
                               className="object-cover size-10 block rounded-full"
                               alt={item.symbol}
                               loading="lazy"

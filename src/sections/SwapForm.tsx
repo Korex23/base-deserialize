@@ -591,7 +591,7 @@ const SwapForm = () => {
     const quoteBody = {
       tokenA: state.sell.token.address,
       tokenB: state.buy.token.address,
-      dexId: state.dex,
+      dexId: "ALL_BASE",
       amountIn: amountInRawBigInt.toString(), // Convert to string here for API
     };
 

@@ -160,7 +160,7 @@ export default function CustomConnectButton() {
                               className="flex items-center gap-4 p-2 rounded-xl shadow-md"
                             >
                               <img
-                                src={asset.logo || "/tokens/OG.png"}
+                                src={asset.logo || "/tokens/base.png"}
                                 alt={`${asset.symbol} logo`}
                                 className="w-8 h-8 rounded-full object-contain"
                               />

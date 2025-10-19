@@ -239,7 +239,7 @@ const SwapImpact: React.FC<SwapImpactProps> = ({
                   text: `${tokenA?.symbol} → ${tokenB?.symbol} (${
                     routes.dexId === "ZERO_G" ? "JAINE" : routes.dexId
                   })`,
-                  width: 200,
+                  width: 330,
                 });
 
                 // Connect previous node to this hop node

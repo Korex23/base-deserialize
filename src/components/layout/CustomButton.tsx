@@ -116,9 +116,11 @@ export default function CustomConnectButton() {
                         <Tooltip>
                           <TooltipTrigger
                             className="size-12 rounded-full bg-[#262626]/50 flex items-center justify-center hover:bg-[#262626] transition duration-300 ease"
-                            onClick={() =>
-                              navigator.clipboard.writeText(account.address)
-                            }
+                            onClick={() => {
+                              navigator.clipboard.writeText(account.address);
+                              setShowTooltip(true);
+                              setTimeout(() => setShowTooltip(false), 2000);
+                            }}
                           >
                             {showTooltip ? (
                               <Check className="size-5 text-green-500" />
@@ -127,7 +129,9 @@ export default function CustomConnectButton() {
                             )}
                           </TooltipTrigger>
                           <TooltipContent>
-                            <p>Copy Wallet Address</p>
+                            <p>
+                              {showTooltip ? "Copied!" : "Copy Wallet Address"}
+                            </p>
                           </TooltipContent>
                         </Tooltip>
                         <Tooltip>

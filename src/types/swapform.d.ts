@@ -121,7 +121,7 @@ export interface ScreenerTokenResponse {
   lastUpdated: number;
   price: number;
   liquidity: number;
-  totalSupply: string;
+  totalSupply: string ;
   circulatingSupply: string;
   marketCap: number;
   fullyDilutedValuation: number;

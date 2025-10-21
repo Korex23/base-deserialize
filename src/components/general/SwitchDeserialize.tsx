@@ -11,6 +11,11 @@ interface DeserializeType {
 
 const deserializeLinks: DeserializeType[] = [
   {
+    name: "Eclipse",
+    image: "/images/eclipse.png",
+    link: "https://deserialize.xyz",
+  },
+  {
     name: "Base",
     image: "https://avatars.githubusercontent.com/u/108554348?s=200&v=4",
     link: "https://base.deserialize.xyz",

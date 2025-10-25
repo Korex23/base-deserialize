@@ -10,6 +10,7 @@ import { ThemeProvider } from "next-themes";
 import WalletProviderWrapper from "@/providers/wallets-provider-wrapper";
 import BackgroundLoader from "@/components/BgLoader";
 import RainbowKitContext from "@/providers/RainbowKit-Provider";
+import ClarityProvider from "@/providers/Clarity-Provide";
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
@@ -56,6 +57,7 @@ export default async function RootLayout({
                 <WalletProviderWrapper>
                   <Navbar />
                   <Toaster />
+                  <ClarityProvider />
                   <main className="mt-[6rem]">{children}</main>
                 </WalletProviderWrapper>
               </OrderServiceProvider>

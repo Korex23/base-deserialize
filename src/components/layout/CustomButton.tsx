@@ -79,7 +79,7 @@ export default function CustomConnectButton() {
               </div>
 
               <span
-                className={`ml-2 px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                className={`ml-2 px-2 py-0.5 rounded-full md:block hidden text-[10px] font-medium ${
                   activeChain === base.id
                     ? "bg-green-600/20 text-green-400 border border-green-600/40"
                     : "bg-yellow-600/20 text-yellow-400 border border-yellow-600/40"

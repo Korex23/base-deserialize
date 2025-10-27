@@ -38,7 +38,7 @@ import { DexIdTypes } from "@/types/swapform";
 import { parseUnits, formatUnits, ethers, TransactionResponse } from "ethers";
 import SwapImpact from "@/components/form/swapImpact";
 import { useToast } from "@/hooks/use-toast";
-import { MAINNET_API_URL, TESTNET_API_URL } from "@/lib/constant";
+import { MAINNET_API_URL } from "@/lib/constant";
 import SwapCustomConnectButton from "@/components/general/SwapConnectButton";
 import mixpanel from "@/lib/mixpanel";
 import { RefreshCcw, Settings } from "lucide-react";
@@ -560,7 +560,7 @@ const SwapForm = () => {
   const lastTrackedKey = useRef<string>("");
 
   const fetchQuote = useCallback(async () => {
-    if (!isConnected) return;
+    // if (!isConnected) return;
     if (txStage !== "idle") return;
     if (isPerformingSwap) return;
     if (state.sell.token.address === state.buy.token.address) {
@@ -784,6 +784,11 @@ const SwapForm = () => {
   const performSwap = useCallback(async () => {
     if (!isConnected) {
       console.warn("Wallet not connected. Cannot perform swap.");
+      toast({
+        title: `Wallet not connected`,
+        description: "Please connect your wallet.",
+        className: "border-2 border-red-500 mt-4",
+      });
       return;
     }
     if (!state.sell.token.address || !state.buy.token.address) {

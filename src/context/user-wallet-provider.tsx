@@ -518,16 +518,6 @@ const WalletProvider = ({ children }: { children: React.ReactNode }) => {
               return null;
             }
 
-            const tokenToUse =
-              token.address === "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"
-                ? "0x1cd0690ff9a693f5ef2dd976660a8dafc81a109c"
-                : token.address;
-
-            const usdVal = await fetch(
-              `${MAINNET_API_URL}/tokenPrice/${tokenToUse}`
-            );
-            const value = await usdVal.json();
-
             const balance = ethers.formatUnits(result, token.decimals);
 
             return {
@@ -536,7 +526,6 @@ const WalletProvider = ({ children }: { children: React.ReactNode }) => {
               address: token.address,
               logo: token.logo,
               decimals: token.decimals,
-              usdValue: value.result,
             } as TokenAsset;
           } catch (err) {
             console.warn(`Error loading ${token.symbol} balance`, err);

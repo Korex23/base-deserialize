@@ -6,6 +6,7 @@ import { useWallet } from "@/context/user-wallet-provider";
 import { ogMainnet } from "@/providers/chains/chains";
 import { useSwitchChain, useAccount, useChainId } from "wagmi";
 import { useEffect } from "react";
+import { base } from "viem/chains";
 
 interface ConnectedProps {
   tokenA: string;
@@ -25,8 +26,8 @@ export default function SwapCustomConnectButton(props: ConnectedProps) {
   const chainId = useChainId();
 
   useEffect(() => {
-    if (isConnected && chainId !== ogMainnet.id) {
-      switchChain({ chainId: ogMainnet.id });
+    if (isConnected && chainId !== base.id) {
+      switchChain({ chainId: base.id });
     }
   }, [isConnected, chainId, switchChain]);
   return (

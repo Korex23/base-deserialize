@@ -112,7 +112,7 @@ const TokenItem: React.FC<TokenItemProps> = ({
               />{" "}
               {asset.symbol}
             </span>
-            <span className="text-xs text-gray-300">
+            {/* <span className="text-xs text-gray-300">
               $
               <span
                 dangerouslySetInnerHTML={{
@@ -120,8 +120,8 @@ const TokenItem: React.FC<TokenItemProps> = ({
                     Number(asset.balance) * Number(asset.usdValue)
                   ),
                 }}
-              />{" "}
-            </span>
+              />
+            </span> */}
           </div>
         </div>
       </div>

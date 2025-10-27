@@ -40,8 +40,8 @@ export default function CustomConnectButton() {
 
   // ✅ Auto-switch chain when connected
   useEffect(() => {
-    if (isConnected && chainId !== ogMainnet.id) {
-      switchChain({ chainId: ogMainnet.id });
+    if (isConnected && chainId !== base.id) {
+      switchChain({ chainId: base.id });
     }
   }, [isConnected, chainId, switchChain]);
 

@@ -70,7 +70,7 @@ const SwapImpact: React.FC<SwapImpactProps> = ({
   };
 
   const formatImpact = () => {
-    const formattedValue = Math.abs(impact).toFixed(2);
+    const formattedValue = impact.toFixed(2);
     if (swapRoutes) {
       return `${impact >= 0 ? "0% (Fully Optimized)" : `${formattedValue}%`}`;
     }
@@ -112,13 +112,13 @@ const SwapImpact: React.FC<SwapImpactProps> = ({
           "0 0 12px rgba(112, 205, 135, 0.5), 0 0 10px rgba(112, 205, 135, 0.25)",
       }}
     >
-      {impact < -10 && (
+      {/* {impact < -10 && (
         <div className="mt-3 p-2 bg-red-500/10 rounded border border-red-500/20 text-xs">
           <p className=" text-red-500">
             High price impact! This swap will significantly affect your Output
           </p>
         </div>
-      )}
+      )} */}
 
       <div className="p-3 space-y-2 md:space-y-4 text-xs sm:text-sm">
         <div className="flex justify-between items-center mb-2">
@@ -178,9 +178,7 @@ const SwapImpact: React.FC<SwapImpactProps> = ({
 
         <div className="flex justify-between items-center mb-2">
           <span className=" text-zinc-200 mr-1">Price Impact</span>
-          <span className={` font-medium ${getImpactColor()}`}>
-            {formatImpact()}
-          </span>
+          <span className={` font-medium `}>{formatImpact()}</span>
         </div>
 
         <div className="flex justify-between items-center">

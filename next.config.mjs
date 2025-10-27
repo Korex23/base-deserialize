@@ -41,6 +41,11 @@ const nextConfig = {
         hostname: "jaine.app",
         pathname: "/**",
       },
+      {
+        protocol: "https",
+        hostname: "basescan.org",
+        pathname: "/**",
+      },
     ],
   },
 

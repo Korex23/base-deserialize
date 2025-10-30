@@ -8,12 +8,10 @@ import React, {
   useCallback,
 } from "react";
 import { ethers } from "ethers";
-import { useDeserializeEVM } from "deserialize-evm-client-sdk";
 import { useAccount, useDisconnect, useChainId } from "wagmi";
 import { ScreenerTokenResponse, TokenAsset } from "@/types/swapform";
 import { NATIVE_0G_TOKEN } from "@/lib/constant";
-import { MAINNET_API_URL } from "@/lib/constant";
-import { getTokenBalance } from "@/lib/getBaseBalance";
+import { TOKEN_LIST } from "@/data/tokenList";
 
 interface WalletInfo {
   isLoading: boolean;
@@ -336,11 +334,7 @@ const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   const fetchTokensFromAPI = async (): Promise<TokenAsset[]> => {
     try {
       console.log("Fetching tokens from API...");
-      const res = await fetch(
-        "https://evm-api.deserialize.xyz/BASE/tokenListWithDetails"
-      );
-      const tokenList = await res.json();
-      const tokens: TokenAsset[] = tokenList.result;
+      const tokens: TokenAsset[] = TOKEN_LIST;
       console.log("Fetched tokens:", tokens);
 
       const caToLogo = {
@@ -510,15 +504,22 @@ const WalletProvider = ({ children }: { children: React.ReactNode }) => {
       const results = await Promise.allSettled(
         tokenList.map(async (token) => {
           try {
-            const result = await getTokenBalance(token.address, Waddress);
+            const res = await fetch("/api/token-balance", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                tokenAddress: token.address,
+                walletAddress: Waddress,
+              }),
+            });
 
-            // Handle null result
-            if (result === null) {
-              console.warn(`Failed to fetch balance for ${token.symbol}`);
+            const data = await res.json();
+            if (!res.ok || !data.balance) {
+              console.warn(`⚠️ Failed to fetch balance for ${token.symbol}`);
               return null;
             }
 
-            const balance = ethers.formatUnits(result, token.decimals);
+            const balance = ethers.formatUnits(data.balance, token.decimals);
 
             return {
               symbol: token.symbol,

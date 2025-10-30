@@ -149,45 +149,90 @@ const SwapForm = () => {
       dispatch({ type: REDUCER_ACTION_TYPE.BUY_AMOUNT, payload: "" });
     }
   }, [mainnetDefaults, hasInitializedFromURL]);
+  const [currentBuyBalance, setCurrentBuyBalance] = useState("0");
+  const [currentSellBalance, setCurrentSellBalance] = useState("0");
 
   const enteredAmount = useDebounce(state.sell.amount, 500);
   const sellPriceCache = useRef<number | null>(null);
   const buyPriceCache = useRef<number | null>(null);
 
-  // Get current balances from assets array
-  const currentSellBalance = useMemo(() => {
-    if (!assets?.length || !state.sell.token.address) return "0";
-    const asset = assets.find(
-      (a) => a.address.toLowerCase() === state.sell.token.address.toLowerCase()
-    );
-    return asset?.balance || "0";
-  }, [assets, state.sell.token.address]);
+  const getSingleTokenDetails = useCallback(
+    async (
+      wallet: string,
+      token: (typeof tokenList)[0]
+    ): Promise<TokenAsset | null> => {
+      const Waddress = address || wallet;
+      if (!Waddress) {
+        console.warn("No wallet address available. Cannot fetch assets.");
+        return null;
+      }
 
-  const currentBuyBalance = useMemo(() => {
-    if (!assets?.length || !state.buy.token.address) return "0";
-    const asset = assets.find(
-      (a) => a.address.toLowerCase() === state.buy.token.address.toLowerCase()
-    );
-    return asset?.balance || "0";
-  }, [assets, state.buy.token.address]);
+      try {
+        const res = await fetch("/api/token-balance", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            tokenAddress: token.address,
+            walletAddress: Waddress,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.balance) {
+          console.warn(`⚠️ Failed to fetch balance for ${token.symbol}`);
+          return null;
+        }
+        const balance = ethers.formatUnits(data.balance, token.decimals);
+        return {
+          symbol: token.symbol,
+          balance,
+          address: token.address,
+          logo: token.logo,
+          decimals: token.decimals,
+        } as TokenAsset;
+      } catch (err) {
+        console.warn(`Error loading ${token.symbol} balance`, err);
+        return null;
+      }
+    },
+    [address]
+  );
 
-  const currentSellUsdValue = useMemo(() => {
-    if (!assets?.length || !state.sell.token.address) return "0";
-    const asset = assets.find(
-      (a) => a.address.toLowerCase() === state.sell.token.address.toLowerCase()
-    );
-    return asset?.usdValue || "0";
-  }, [assets, state.sell.token.address]);
+  useEffect(() => {
+    const fetchSellBalance = async () => {
+      if (!address || !state.sell.token.address) {
+        setCurrentSellBalance("0");
+        return;
+      }
+      const sellToken = tokenList.find(
+        (t) =>
+          t.address.toLowerCase() === state.sell.token.address.toLowerCase()
+      );
+      if (sellToken) {
+        const asset = await getSingleTokenDetails(address, sellToken);
+        setCurrentSellBalance(asset?.balance || "0");
+      }
+    };
+    fetchSellBalance();
+  }, [address, state.sell.token.address, getSingleTokenDetails]);
 
-  const currentBuyUsdValue = useMemo(() => {
-    if (!assets?.length || !state.buy.token.address) return "0";
-    const asset = assets.find(
-      (a) => a.address.toLowerCase() === state.buy.token.address.toLowerCase()
-    );
-    return asset?.usdValue || "0";
-  }, [assets, state.buy.token.address]);
+  // Fetch and store buy token balance
+  useEffect(() => {
+    const fetchBuyBalance = async () => {
+      if (!address || !state.buy.token.address) {
+        setCurrentBuyBalance("0");
+        return;
+      }
+      const buyToken = tokenList.find(
+        (t) => t.address.toLowerCase() === state.buy.token.address.toLowerCase()
+      );
+      if (buyToken) {
+        const asset = await getSingleTokenDetails(address, buyToken);
+        setCurrentBuyBalance(asset?.balance || "0");
+      }
+    };
+    fetchBuyBalance();
+  }, [address, state.buy.token.address, getSingleTokenDetails]);
 
-  // Initialize from URL params once when tokenList is available
   useEffect(() => {
     if (!tokenList.length || hasInitializedFromURL) return;
 
@@ -767,19 +812,6 @@ const SwapForm = () => {
   }
 
   useQuote(fetchQuote);
-
-  useEffect(() => {
-    const fetchWithLog = () => {
-      console.log("Triggered refetch");
-      fetchWalletAssets(address || "");
-    };
-
-    fetchWithLog();
-
-    const intervalId = setInterval(fetchWithLog, 30000);
-
-    return () => clearInterval(intervalId);
-  }, [fetchWalletAssets, address]);
 
   const performSwap = useCallback(async () => {
     if (!isConnected) {

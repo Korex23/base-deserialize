@@ -29,7 +29,6 @@ import { formatSmallNumber } from "@/lib/utils";
 import { useWallet } from "@/context/user-wallet-provider";
 import TokenItem from "@/sections/TokenItem";
 import { NATIVE_0G_TOKEN } from "@/lib/constant";
-import { getTokenBalance } from "@/lib/getTokenInfo";
 import { isAddress } from "ethers";
 
 interface InputProps
@@ -142,16 +141,36 @@ const SwapInputgroup = forwardRef(
         try {
           const walletAddress =
             address || "0x0000000000000000000000000000000000000000";
-          const tokenInfo = await getTokenBalance(trimmedSearch, walletAddress);
 
-          if (tokenInfo && tokenInfo.symbol) {
+          const res = await fetch("/api/token-info", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              tokenAddress: trimmedSearch,
+              walletAddress,
+            }),
+          });
+
+          const data = await res.json();
+
+          if (!res.ok || data.error) {
+            setFetchedToken(null);
+            setError(
+              data.error ||
+                "Unable to fetch token information. Please verify the contract address."
+            );
+            return;
+          }
+
+          if (data.symbol && data.decimals !== undefined) {
             const newToken: TokenAsset = {
-              address: tokenInfo.tokenAddress,
-              symbol: tokenInfo.symbol,
-              decimals: tokenInfo.decimals || 18,
-              balance: tokenInfo.balance.toString(),
+              address: trimmedSearch,
+              symbol: data.symbol,
+              decimals: data.decimals,
+              balance: data.balance ?? "0",
               logo: "/tokens/base.png",
             };
+
             setFetchedToken(newToken);
             setError("");
           } else {
@@ -468,20 +487,28 @@ const SwapInputgroup = forwardRef(
 
               {/* Error Message */}
               {error && (
-                <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-lg mb-3">
-                  <div className="flex items-start gap-2">
-                    <svg
-                      className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    <span className="text-sm text-red-700">{error}</span>
+                <div className="px-4 py-3.5 bg-red-50 border border-red-200/80 rounded-xl mb-3 shadow-sm">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-5 h-5 mt-0.5">
+                      <svg
+                        className="w-full h-full text-red-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-red-800 leading-relaxed">
+                        {error}
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}

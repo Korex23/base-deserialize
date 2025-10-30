@@ -10,11 +10,11 @@ interface DeserializeType {
 }
 
 const deserializeLinks: DeserializeType[] = [
-  {
-    name: "Eclipse",
-    image: "/images/eclipse.png",
-    link: "https://deserialize.xyz",
-  },
+  // {
+  //   name: "Eclipse",
+  //   image: "/images/eclipse.png",
+  //   link: "https://deserialize.xyz",
+  // },
   {
     name: "Base",
     image: "https://avatars.githubusercontent.com/u/108554348?s=200&v=4",
@@ -76,7 +76,7 @@ const SwitchDeserialize = () => {
                   className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-[#262626] rounded-xl"
                   onClick={() => {
                     setDropdownOpen(false);
-                    if (link.name !== "0G") {
+                    if (link.name !== "Base") {
                       window.open(link.link, "_self");
                     }
                   }}

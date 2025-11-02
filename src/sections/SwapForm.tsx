@@ -44,6 +44,7 @@ import mixpanel from "@/lib/mixpanel";
 import { RefreshCcw, Settings } from "lucide-react";
 import SwapSettingsDialog from "@/components/general/SlippageButton";
 import SelectedTokens from "./SelectedTokens";
+import { useWalletClient } from "wagmi";
 
 const montserrat_alternates = Montserrat_Alternates({
   subsets: ["latin"],
@@ -62,6 +63,7 @@ const SwapForm = () => {
   } = useWallet();
 
   const { toast } = useToast();
+  const { data: walletClient } = useWalletClient();
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -832,6 +834,26 @@ const SwapForm = () => {
       return;
     }
 
+    if (!walletClient) {
+      toast({
+        title: "Wallet not ready",
+        description: "Please reconnect your wallet.",
+        className: "border-2 border-red-500 mt-4",
+      });
+      return;
+    }
+
+    // Ensure the wallet provider is still active
+    if (typeof window.ethereum === "undefined") {
+      toast({
+        title: "Wallet Not Detected",
+        description:
+          "Please ensure your wallet extension is installed and active.",
+        className: "border-2 border-red-500 mt-4",
+      });
+      return;
+    }
+
     mixpanel.track("0G Swap Transaction Started", {
       sell_token: state.sell.token.symbol,
       buy_token: state.buy.token.symbol,
@@ -871,8 +893,83 @@ const SwapForm = () => {
       const transactions = result.transactions;
       console.log("Swap transactions:", transactions);
 
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
+      const provider = new ethers.BrowserProvider(walletClient.transport);
+
+      // Force wallet authorization before proceeding - prevents "silent rejection"
+      try {
+        await provider.send("eth_requestAccounts", []);
+      } catch (err: any) {
+        console.error("Wallet authorization failed:", err);
+        toast({
+          title: "Wallet Access Denied",
+          description:
+            "Your wallet must authorize this site before signing transactions.",
+          className: "border-2 border-red-500 mt-4",
+        });
+        setIsPerformingSwap(false);
+        setTxStage("idle");
+        return;
+      }
+
+      // Check accounts BEFORE attempting to get signer
+      let accounts;
+      try {
+        accounts = await provider.listAccounts();
+      } catch (err: any) {
+        console.error("Failed to get accounts:", err);
+        toast({
+          title: "Wallet Error",
+          description:
+            "Unable to access wallet accounts. Please reconnect your wallet.",
+          className: "border-2 border-red-500 mt-4",
+        });
+        setIsPerformingSwap(false);
+        setTxStage("idle");
+        return;
+      }
+
+      if (!accounts.length) {
+        toast({
+          title: "No wallet account",
+          description:
+            "Please ensure your wallet has at least one account connected.",
+          className: "border-2 border-red-500 mt-4",
+        });
+        setIsPerformingSwap(false);
+        setTxStage("idle");
+        return;
+      }
+
+      // Now safely get the signer
+      let signer;
+      try {
+        signer = await provider.getSigner();
+      } catch (err: any) {
+        console.error("Failed to get signer:", err);
+
+        if (err.code === "ACTION_REJECTED" || err.code === 4001) {
+          toast({
+            title: "Wallet Access Denied",
+            description:
+              "Please ensure your wallet has at least one account connected.",
+            className: "border-2 border-red-500 mt-4",
+          });
+          mixpanel.track("0G Wallet Access Denied", {
+            error_code: err.code,
+            error_message: err.message,
+          });
+        } else {
+          toast({
+            title: "Wallet Error",
+            description: err.message || "Failed to access wallet signer.",
+            className: "border-2 border-red-500 mt-4",
+          });
+        }
+
+        setIsPerformingSwap(false);
+        setTxStage("idle");
+        return;
+      }
 
       setTxStage("broadcast");
 
@@ -905,6 +1002,10 @@ const SwapForm = () => {
       // Send transactions one by one
       const successfulTxs: TransactionResponse[] = [];
 
+      console.log("isConnected:", isConnected);
+      console.log("WalletClient:", walletClient);
+      console.log("window.ethereum:", window.ethereum);
+
       for (let i = 0; i < transactions.length; i++) {
         const tx = transactions[i];
 
@@ -928,7 +1029,11 @@ const SwapForm = () => {
         } catch (err: any) {
           console.error(`Transaction ${i + 1} failed:`, err);
 
-          if (err?.message?.includes("denied transaction")) {
+          if (
+            err?.message?.includes("denied transaction") ||
+            err.code === "ACTION_REJECTED" ||
+            err.code === 4001
+          ) {
             toast({
               title: `Transaction Rejected`,
               description: "You rejected the transaction.",
@@ -937,12 +1042,19 @@ const SwapForm = () => {
             mixpanel.track("0G User Rejected Swap Transaction", {
               transaction_index: i,
               total_transactions: transactions.length,
+              error_code: err.code,
             });
           } else if (err?.message?.includes("internal json-rpc error")) {
             toast({
               title: `Transaction Failed`,
               description: "0g network error, please try again",
               className: "border-2 border-red-500 mt-4",
+            });
+            mixpanel.track("0G Swap Transaction Failed", {
+              transaction_index: i,
+              total_transactions: transactions.length,
+              error_type: "rpc_error",
+              error_message: err.message,
             });
           } else {
             toast({
@@ -1001,13 +1113,20 @@ const SwapForm = () => {
       console.error("Swap error:", err);
       setTxStage("failed");
 
-      if (err?.message?.includes("denied transaction")) {
+      if (
+        err?.message?.includes("denied transaction") ||
+        err.code === "ACTION_REJECTED" ||
+        err.code === 4001
+      ) {
         toast({
           title: "Transaction Rejected",
           description: "You rejected the transaction.",
           className: "border-2 border-red-500 mt-4",
         });
-        mixpanel.track("0G User Rejected Swap Transaction");
+        mixpanel.track("0G User Rejected Swap Transaction", {
+          stage: txStage,
+          error_code: err.code,
+        });
       } else {
         toast({
           title: "Transaction Failed",

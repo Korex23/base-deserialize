@@ -3,8 +3,8 @@ import { GiBridge } from "react-icons/gi";
 
 export const NavLinks = [
   { name: "Trade", links: ["/", "/limit-order"], tag: "Hot" },
-  // { name: "Perp Dex", links: ["https://og.deserialize.xyz/"], tag: "New" },
-  // { name: "Token Screener", links: ["/token-screener"], tag: "New" },
+  { name: "Perp Dex", links: ["https://og.deserialize.xyz/"], tag: "Soon" },
+  { name: "Token Screener", links: ["/token-screener"], tag: "Soon" },
   {
     name: "Bridge",
     links: ["https://www.dextopus.com/"],
@@ -24,18 +24,18 @@ export const MobileNavLinks = [
     tag: "Hot",
     icon: Repeat,
   },
-  // {
-  //   name: "Perp Dex",
-  //   links: ["https://og.deserialize.xyz/"],
-  //   tag: "New",
-  //   icon: CandlestickChartIcon,
-  // },
-  // {
-  //   name: "Token Screener",
-  //   links: ["/token-screener"],
-  //   tag: "New",
-  //   icon: Coins,
-  // },
+  {
+    name: "Perp Dex",
+    links: ["https://og.deserialize.xyz/"],
+    tag: "Soon",
+    icon: CandlestickChartIcon,
+  },
+  {
+    name: "Token Screener",
+    links: ["/token-screener"],
+    tag: "Soon",
+    icon: Coins,
+  },
 
   {
     name: "Bridge",

@@ -16,6 +16,17 @@ const deserializeLinks: DeserializeType[] = [
   //   link: "https://deserialize.xyz",
   // },
   {
+    name: "Solana",
+    image:
+      "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png",
+    link: "https://solana.deserialize.xyz",
+  },
+  {
+    name: "Eclipse",
+    image: "/images/eclipse.png",
+    link: "https://eclipse.deserialize.xyz",
+  },
+  {
     name: "Base",
     image: "https://avatars.githubusercontent.com/u/108554348?s=200&v=4",
     link: "https://base.deserialize.xyz",

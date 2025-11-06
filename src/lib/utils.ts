@@ -66,12 +66,13 @@ export const formatSmallNumber = (num: number | null): string => {
     const [coefficient, exponentStr] = scientific.split("e");
     const exponent = parseInt(exponentStr);
     const [, decimal = ""] = coefficient.split(".");
-
     const significant = decimal.replace(/^0+/, "").slice(0, 5);
     const zeroCount = Math.abs(exponent) - 1;
-
     return `0.0<small class="text-[8px]">${zeroCount}</small>${significant}`;
   }
 
-  return `${num.toFixed(4)}`;
+  const decimalPart = num.toString().split(".")[1];
+  const decimalLength = decimalPart ? Math.min(decimalPart.length, 4) : 0;
+
+  return num.toFixed(decimalLength).replace(/\.?0+$/, "");
 };

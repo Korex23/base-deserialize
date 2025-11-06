@@ -106,12 +106,19 @@ const Navbar = () => {
                 </div>
                 {NavLinks.map(({ name, links, tag }) => {
                   const isActive = links.includes(pathName);
+                  const isDisabled = tag === "Soon";
 
                   return (
                     <Link
-                      href={links[0] ?? "#"}
+                      href={isDisabled ? "#" : links[0] ?? "#"}
                       key={name}
-                      onClick={() => {
+                      aria-disabled={isDisabled}
+                      onClick={(e) => {
+                        if (isDisabled) {
+                          e.preventDefault(); // Prevent navigation
+                          return; // Skip analytics and closeMenu
+                        }
+
                         closeMenu();
 
                         mixpanel.track("Navigation Link Clicked", {
@@ -129,7 +136,9 @@ const Navbar = () => {
                       }}
                       className={cn(
                         "flex items-center gap-1 md:text-[10px] lg:text-[16px] font-medium transition-all duration-300 ease-in-out hover:opacity-75 text-white",
-                        isActive && "text-[#3FFF3D]"
+                        isActive && "text-[#3FFF3D]",
+                        isDisabled &&
+                          "cursor-not-allowed opacity-50 hover:opacity-50"
                       )}
                     >
                       <span>{name}</span>
@@ -144,7 +153,7 @@ const Navbar = () => {
                               "bg-[#F97316] drop-shadow-[0_0_3px_#F97316]",
                             tag === "Beta" &&
                               "bg-amber-500 drop-shadow-[0_0_3px_#fbbf24]",
-                            tag === "Coming Soon" &&
+                            tag === "Soon" &&
                               "bg-[#6366F1] drop-shadow-[0_0_3px_#6366F1]"
                           )}
                         >
@@ -218,32 +227,67 @@ const Navbar = () => {
                 showBottomNav ? "translate-y-0" : "translate-y-full"
               )}
             >
-              {MobileNavLinks.map(({ name, links, icon: Icon }) => {
+              {MobileNavLinks.map(({ name, links, icon: Icon, tag }) => {
                 const isExternal = links[0].startsWith("http");
-
                 const isActive = links.includes(pathName);
-                return isExternal ? (
-                  <a
-                    href={links[0]}
-                    key={name}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex flex-col items-center text-white gap-1 text-xs font-medium hover:opacity-80"
-                  >
-                    <Icon className="w-5 h-5" />
-                    {name}
-                  </a>
-                ) : (
+                const isDisabled = tag === "Soon";
+
+                const tagClasses = cn(
+                  "text-[4px] px-[2px] py-[1px] rounded-md font-semibold uppercase tracking-wider text-white backdrop-blur-sm",
+                  "border border-white/10 shadow-md animate-pulse flex items-center",
+                  tag === "New" && "bg-[#10B981] drop-shadow-[0_0_3px_#10B981]",
+                  tag === "Hot" && "bg-[#F97316] drop-shadow-[0_0_3px_#F97316]",
+                  tag === "Beta" &&
+                    "bg-amber-500 drop-shadow-[0_0_3px_#fbbf24]",
+                  tag === "Soon" && "bg-[#6366F1] drop-shadow-[0_0_3px_#6366F1]"
+                );
+
+                const sharedClassNames = cn(
+                  "flex flex-col items-center text-white gap-1 text-xs font-medium hover:opacity-80 transition-all duration-300",
+                  isActive && "text-[#85eeab]",
+                  isDisabled && "cursor-not-allowed opacity-50 hover:opacity-50"
+                );
+
+                const handleClick = (e) => {
+                  if (isDisabled) {
+                    e.preventDefault();
+                    return;
+                  }
+                };
+
+                if (isExternal) {
+                  return (
+                    <a
+                      href={isDisabled ? "#" : links[0]}
+                      key={name}
+                      aria-disabled={isDisabled}
+                      target={isDisabled ? "_self" : "_blank"}
+                      rel="noopener noreferrer"
+                      onClick={handleClick}
+                      className={sharedClassNames}
+                    >
+                      <Icon className="w-5 h-5" />
+                      <div className="flex items-center gap-1">
+                        <span>{name}</span>
+                        {tag && <span className={tagClasses}>{tag}</span>}
+                      </div>
+                    </a>
+                  );
+                }
+
+                return (
                   <Link
-                    href={links[0]}
+                    href={isDisabled ? "#" : links[0]}
                     key={name}
-                    className={cn(
-                      "flex flex-col items-center text-white gap-1 text-xs font-medium hover:opacity-80",
-                      isActive && "text-[#85eeab]"
-                    )}
+                    aria-disabled={isDisabled}
+                    onClick={handleClick}
+                    className={sharedClassNames}
                   >
                     <Icon className="w-5 h-5" />
-                    {name}
+                    <div className="flex items-center gap-1">
+                      <span>{name}</span>
+                      {tag && <span className={tagClasses}>{tag}</span>}
+                    </div>
                   </Link>
                 );
               })}

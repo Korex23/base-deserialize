@@ -14,9 +14,7 @@ export default function HomeTabsLayout({
 }) {
   return (
     <main className="pt-8">
-      {/* <Tabs items={tabItems}> */}
-      {children}
-      {/* </Tabs> */}
+      <Tabs items={tabItems}>{children}</Tabs>
     </main>
   );
 }

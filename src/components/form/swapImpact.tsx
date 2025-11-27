@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Loader2, X } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatSmallNumber } from "@/lib/utils";
 import { TokenAsset, SwapQuoteResponse } from "@/types/swapform";
 import { Canvas, Node, NodeData, EdgeData } from "reaflow";
 
@@ -79,11 +79,11 @@ const SwapImpact: React.FC<SwapImpactProps> = ({
 
   const formatFeeRate = () => `${feeRate.toFixed(2)}%`;
 
-  const formatPairRate = () =>
-    pairRate.toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 6,
-    });
+  // const formatPairRate = () =>
+  //   pairRate.toLocaleString(undefined, {
+  //     minimumFractionDigits: 2,
+  //     maximumFractionDigits: 6,
+  //   });
 
   const getTokenInfo = (identifier: string) => {
     return tokenList?.find(
@@ -305,7 +305,16 @@ const SwapImpact: React.FC<SwapImpactProps> = ({
         <div className="text-[10px] flex items-center justify-center mb-2 gap-1">
           <span className="text-zinc-200">Rate:</span>{" "}
           <span className="font-normal" style={{ color: "#CCCCCC" }}>
-            1 {sellToken.symbol} ≈ {formatPairRate()} {buyToken.symbol}
+            1 {sellToken.symbol} ≈{" "}
+            <span
+              className={cn(
+                "sm:text-[12px] text-[10px] md:text-[16px] text-[#FFFFFF]"
+              )}
+              dangerouslySetInnerHTML={{
+                __html: formatSmallNumber(pairRate),
+              }}
+            />{" "}
+            {buyToken.symbol}
           </span>
         </div>
       </div>

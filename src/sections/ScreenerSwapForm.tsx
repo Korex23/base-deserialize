@@ -38,7 +38,7 @@ import { DexIdTypes } from "@/types/swapform";
 import { parseUnits, formatUnits, ethers, TransactionResponse } from "ethers";
 import SwapImpact from "@/components/form/swapImpact";
 import { useToast } from "@/hooks/use-toast";
-import { MAINNET_API_URL, TESTNET_API_URL } from "@/lib/constant";
+import { MAINNET_API_URL } from "@/lib/constant";
 import SwapCustomConnectButton from "@/components/general/SwapConnectButton";
 import mixpanel from "@/lib/mixpanel";
 import { RefreshCcw, Settings } from "lucide-react";

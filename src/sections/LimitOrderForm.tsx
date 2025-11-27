@@ -42,15 +42,20 @@ import { Aldrich, Montserrat_Alternates } from "next/font/google";
 import { cn } from "@/lib/utils";
 import axios from "axios";
 import { mainnetDefaults } from "@/data/mock-data";
-import { useAccount } from "wagmi";
+import { useAccount, useToken, useWalletClient } from "wagmi";
 import { useWallet } from "@/context/user-wallet-provider";
 import { TokenAsset } from "@/types/limit-order";
-import { MAINNET_API_URL } from "@/lib/constant";
-
-const aldrich = Aldrich({
-  subsets: ["latin"],
-  weight: "400",
-});
+import { MAINNET_API_URL, LIMIT_ORDER_SERVER } from "@/lib/constant";
+import {
+  LimitOrderMaker,
+  LimitOrderClient,
+  LimitOrderAbi,
+  BASE_LIMIT_ORDER_CONFIG,
+} from "@deserialize/evm-limit-sdk";
+import { base } from "viem/chains";
+import { ethers, JsonRpcProvider, parseEther, parseUnits } from "ethers";
+import { useLimitOrderClients } from "@/hooks/useLimitOrderClient";
+import { useTokenPrice } from "@/hooks/useTokenPrice";
 
 const montserrat_alternates = Montserrat_Alternates({
   subsets: ["latin"],
@@ -69,16 +74,6 @@ interface LoadingStages {
 
 const LimitOrderForm = () => {
   const {
-    initOrder,
-    createOrder,
-    initCancel,
-    cancelOrder,
-    getOrdersByWallet,
-    getOrdersById,
-    cancelAllTokenOrders,
-    initCancelAllTokenOrders,
-  } = useOrderService();
-  const {
     isConnected,
     assets,
     address,
@@ -86,6 +81,12 @@ const LimitOrderForm = () => {
     fetchWalletAssets,
     tokenList,
   } = useWallet();
+  const { data: walletClient } = useWalletClient();
+
+  const provider = walletClient?.transport
+    ? new ethers.BrowserProvider(walletClient.transport as any)
+    : null;
+  const { makerClient, err } = useLimitOrderClients(provider);
   const { toast } = useToast();
   const router = useRouter();
   const pathname = usePathname();
@@ -176,6 +177,31 @@ const LimitOrderForm = () => {
   );
   const [showOrders, setShowOrders] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
+  const { tokenPrice } = useTokenPrice(
+    state.sell.token.address,
+    state.buy.token.address,
+    state.sell.token.decimals
+  );
+
+  useEffect(() => {
+    if (tokenPrice) {
+      dispatch({
+        type: REDUCER_ACTION_TYPE.LIMIT_PRICE,
+        payload: tokenPrice.toFixed(6),
+      });
+    }
+  }, [tokenPrice]);
+
+  useEffect(() => {
+    if (state.limitPrice) {
+      dispatch({
+        type: REDUCER_ACTION_TYPE.BUY_AMOUNT,
+        payload: (
+          parseFloat(state.sell.amount as string) * parseFloat(state.limitPrice)
+        ).toFixed(6),
+      });
+    }
+  }, [state.limitPrice]);
 
   // Get current balances from assets array
   const currentSellBalance = useMemo(() => {
@@ -404,69 +430,6 @@ const LimitOrderForm = () => {
     return () => clearInterval(intervalId);
   }, [state.buy.token.address]);
 
-  const fetchOrders = useCallback(async () => {
-    if (!address) return;
-
-    try {
-      setLoading((prev) => ({ ...prev, fetchingOrders: false }));
-
-      // Usage
-      const response = await getOrdersByWallet(address.toString());
-
-      const formattedOrders: Order[] = await Promise.all(
-        response.data.map(async (order: Order) => {
-          try {
-            const updatedOrder = await getOrdersById(order.id);
-
-            return {
-              id: order.id,
-              tokenA: order.tokenA,
-              tokenB: order.tokenB,
-              expiry: order.expiry,
-              price: order.price,
-              amount: order.amount,
-              amountOut: order.amountOut,
-              depositSignature: order.depositSignature,
-              status: updatedOrder.data.order.status.toLowerCase(),
-              createdAt: order.createdAt,
-              updatedAt: updatedOrder.data.order.updatedAt,
-              executionSignature: order.executionSignature,
-              refundTrxSignature: order.refundTrxSignature,
-            };
-          } catch (err) {
-            console.warn(
-              `Could not update order ${order.id}, fallback to original`
-            );
-            return {
-              ...order,
-              status: order.status.toLowerCase(),
-            };
-          }
-        })
-      );
-
-      setOrders(formattedOrders);
-    } catch (error) {
-      console.error("Failed to fetch orders:", error);
-    } finally {
-      setLoading((prev) => ({ ...prev, fetchingOrders: false }));
-    }
-  }, [getOrdersByWallet, address, toast]);
-
-  useEffect(() => {
-    if (isConnected && address) {
-      fetchOrders();
-
-      pollingIntervalRef.current = setInterval(fetchOrders, 30000);
-
-      return () => {
-        if (pollingIntervalRef.current) {
-          clearInterval(pollingIntervalRef.current);
-        }
-      };
-    }
-  }, [isConnected, address, fetchOrders]);
-
   const calculateEquivalentBuyAmount = useCallback(() => {
     if (!enteredAmount || !sellDollarValue || !buyDollarValue) return;
 
@@ -610,7 +573,7 @@ const LimitOrderForm = () => {
   ]);
 
   const applyMarkup = (percent: number) => {
-    const marketPrice = calculateMarketPrice();
+    const marketPrice = tokenPrice;
     if (marketPrice) {
       const newLimitPrice = marketPrice * (1 + percent / 100);
       dispatch({
@@ -784,277 +747,32 @@ const LimitOrderForm = () => {
     []
   );
 
-  const selectedDuration = useMemo(() => {
-    if (state.expiry === 0) return 0;
+  // const selectedDuration = useMemo(() => {
+  //   if (state.expiry === 0) return 0;
 
-    const duration = state.expiry;
+  //   const duration = state.expiry;
 
-    const exactMatch = expirationOptions.find((opt) => opt.value === duration);
-    if (exactMatch) return exactMatch.value;
+  //   const exactMatch = expirationOptions.find((opt) => opt.value === duration);
+  //   if (exactMatch) return exactMatch.value;
 
-    const isCustom = !expirationOptions.some((opt) => {
-      return Math.abs(opt.value - duration) < 60000;
-    });
+  //   const isCustom = !expirationOptions.some((opt) => {
+  //     return Math.abs(opt.value - duration) < 60000;
+  //   });
 
-    if (isCustom) {
-      setIsCustomExpiry(true);
-      setCustomDuration((duration / 60000).toString());
-      return -1;
-    }
+  //   if (isCustom) {
+  //     setIsCustomExpiry(true);
+  //     setCustomDuration((duration / 60000).toString());
+  //     return -1;
+  //   }
 
-    const closest = expirationOptions.reduce((prev, curr) =>
-      Math.abs(curr.value - duration) < Math.abs(prev.value - duration)
-        ? curr
-        : prev
-    );
+  //   const closest = expirationOptions.reduce((prev, curr) =>
+  //     Math.abs(curr.value - duration) < Math.abs(prev.value - duration)
+  //       ? curr
+  //       : prev
+  //   );
 
-    return closest.value;
-  }, [state.expiry, expirationOptions]);
-
-  const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(
-    null
-  );
-
-  const handleInitCancel = useCallback(
-    async (orderId: string) => {
-      if (!address) {
-        toast({
-          title: "Wallet not isConnected",
-          className: "border-2 border-red-500",
-        });
-        return;
-      }
-
-      try {
-        setCancellingOrderId(orderId);
-        setLoading((prev) => ({ ...prev, initiatingCancel: true }));
-
-        // const response = await initCancel({
-        //   address: address.toString(),
-        //   orderId: orderId,
-        // });
-
-        // if (!signMessage) {
-        //   throw new Error("SIGN_MESSAGE_NOT_SUPPORTED");
-        // }
-        // const signature = await signMessage(
-        //   new TextEncoder().encode(response.data.messageToSign)
-        // );
-
-        // if (!signature) {
-        //   throw new Error("Message signing cancelled");
-        // }
-
-        // // Proceed with cancellation
-        // await handleCancelOrder(orderId, signature);
-
-        fetchOrders();
-      } catch (error) {
-        console.error("Cancellation failed:", error);
-        toast({
-          title: "Cancellation failed",
-          description:
-            error instanceof Error ? error.message : "Failed to cancel order",
-          className: "border-2 border-red-500",
-        });
-      } finally {
-        setLoading((prev) => ({ ...prev, initiatingCancel: false }));
-        setCancellingOrderId(null);
-      }
-    },
-    [address, initCancel, toast, fetchOrders]
-  );
-
-  const handleCancelOrder = useCallback(
-    async (orderId: string, signature: Uint8Array) => {
-      if (!address) {
-        toast({
-          title: "Wallet not isConnected",
-          className: "border-2 border-red-500",
-        });
-        return;
-      }
-
-      try {
-        setLoading((prev) => ({ ...prev, cancellingOrder: true }));
-
-        // Convert signature to Base58
-        const signatureBase58 = bs58.encode(signature);
-
-        // Add retry logic
-        const maxRetries = 3;
-        let lastError;
-
-        for (let attempt = 0; attempt < maxRetries; attempt++) {
-          try {
-            // const response = await cancelOrder({
-            //   signature: signatureBase58,
-            //   address: address.toString(),
-            //   orderId,
-            // });
-
-            toast({
-              title: "Order cancelled successfully",
-              className: "border-2 border-green-500",
-            });
-
-            return null;
-          } catch (error) {
-            lastError = error;
-            if (attempt < maxRetries - 1) {
-              await new Promise((resolve) =>
-                setTimeout(resolve, 1000 * (attempt + 1))
-              );
-            }
-          }
-        }
-
-        throw lastError;
-      } catch (error) {
-        console.error("Cancellation failed:", error);
-
-        let errorMessage = "Failed to cancel order";
-        if (error instanceof Error) {
-          if (error.message.includes("503")) {
-            errorMessage =
-              "Service temporarily unavailable. Please try again later.";
-          } else if (error.message.includes("withdrawal transaction")) {
-            errorMessage =
-              "Failed to process withdrawal. Please check your balance and try again.";
-          } else {
-            errorMessage = error.message;
-          }
-        }
-
-        toast({
-          title: "Cancellation failed",
-          description: errorMessage,
-          className: "border-2 border-red-500",
-        });
-
-        throw error;
-      } finally {
-        setLoading((prev) => ({ ...prev, cancellingOrder: false }));
-      }
-    },
-    [address, cancelOrder, toast]
-  );
-
-  const handleInitCancelOrderOfASpecificToken = useCallback(
-    async (token: string) => {
-      if (!address) {
-        toast({
-          title: "Wallet not isConnected",
-          className: "border-2 border-red-500",
-        });
-        return;
-      }
-
-      try {
-        setLoading((prev) => ({ ...prev, initCancellingAllToken: true }));
-
-        // const response = await initCancelAllTokenOrders({
-        //   address: address.toString(),
-        //   token: token,
-        // });
-
-        // if (!signMessage) {
-        //   throw new Error("SIGN_MESSAGE_NOT_SUPPORTED");
-        // }
-        // const signature = await signMessage(
-        //   new TextEncoder().encode(response.data.messageToSign)
-        // );
-
-        // if (!signature) {
-        //   throw new Error("Message signing cancelled");
-        // }
-
-        // // Proceed with cancellation
-        // await handleCancelAllTokenOrder(signature, token);
-
-        fetchOrders();
-      } catch (error) {
-      } finally {
-        setLoading((prev) => ({ ...prev, initCancellingAllToken: false }));
-      }
-    },
-    [address, initCancelAllTokenOrders]
-  );
-
-  const handleCancelAllTokenOrder = useCallback(
-    async (signature: Uint8Array, token: string) => {
-      if (!address) {
-        toast({
-          title: "Wallet not isConnected",
-          className: "border-2 border-red-500",
-        });
-        return;
-      }
-
-      try {
-        setLoading((prev) => ({ ...prev, cancellingAllToken: true }));
-
-        // Convert signature to Base58
-        const signatureBase58 = bs58.encode(signature);
-
-        // Add retry logic
-        const maxRetries = 3;
-        let lastError;
-
-        for (let attempt = 0; attempt < maxRetries; attempt++) {
-          try {
-            const response = await cancelAllTokenOrders({
-              signature: signatureBase58,
-              publicKey: address.toString(),
-              token: token,
-            });
-
-            toast({
-              title: "Order cancelled successfully",
-              className: "border-2 border-green-500",
-            });
-
-            return response;
-          } catch (error) {
-            lastError = error;
-            if (attempt < maxRetries - 1) {
-              await new Promise((resolve) =>
-                setTimeout(resolve, 1000 * (attempt + 1))
-              );
-            }
-          }
-        }
-
-        throw lastError;
-      } catch (error) {
-        console.error("Cancellation failed:", error);
-
-        let errorMessage = "Failed to cancel order";
-        if (error instanceof Error) {
-          if (error.message.includes("503")) {
-            errorMessage =
-              "Service temporarily unavailable. Please try again later.";
-          } else if (error.message.includes("withdrawal transaction")) {
-            errorMessage =
-              "Failed to process withdrawal. Please check your balance and try again.";
-          } else {
-            errorMessage = error.message;
-          }
-        }
-
-        toast({
-          title: "Cancellation failed",
-          description: errorMessage,
-          className: "border-2 border-red-500",
-        });
-
-        throw error;
-      } finally {
-        setLoading((prev) => ({ ...prev, cancellingAllToken: false }));
-      }
-    },
-    [address, cancelAllTokenOrders]
-  );
+  //   return closest.value;
+  // }, [state.expiry, expirationOptions]);
 
   const statusClassMap: Record<string, string> = {
     CREATED: "text-yellow-500 font-semibold",
@@ -1091,6 +809,92 @@ const LimitOrderForm = () => {
     const adjustedValue = limitPrice * buyDollarValue;
     return adjustedValue;
   }, [state.limitPrice, sellDollarValue, buyDollarValue]);
+
+  const handleCreateOrder = useCallback(async () => {
+    if (!address) {
+      toast({
+        title: "Wallet not connected",
+        className: "border-2 border-red-500",
+      });
+      return;
+    }
+
+    if (!makerClient) {
+      toast({
+        title: "Maker client not initialized",
+        className: "border-2 border-red-500",
+      });
+      return;
+    }
+
+    const sellAmount = state.sell.amount;
+    const buyAmount = state.buy.amount;
+
+    if (!sellAmount || Number(sellAmount) <= 0 || isNaN(Number(sellAmount))) {
+      toast({
+        title: "Invalid sell amount",
+        className: "border-2 border-red-500",
+      });
+      return;
+    }
+
+    if (!buyAmount || Number(buyAmount) <= 0 || isNaN(Number(buyAmount))) {
+      toast({
+        title: "Invalid buy amount",
+        className: "border-2 border-red-500",
+      });
+      return;
+    }
+
+    const sellTokenInfo = getTokenInfo(state.sell.token.address);
+    const buyTokenInfo = getTokenInfo(state.buy.token.address);
+
+    if (!sellTokenInfo || !buyTokenInfo) {
+      toast({
+        title: "Invalid token selection",
+        className: "border-2 border-red-500",
+      });
+      return;
+    }
+
+    try {
+      setLoading((prev) => ({ ...prev, creatingOrder: true }));
+
+      const makerAmount = parseUnits(
+        sellAmount.toString(),
+        sellTokenInfo.decimals
+      );
+      const takerAmount = parseUnits(
+        buyAmount.toString(),
+        buyTokenInfo.decimals
+      );
+
+      const createOrder = await makerClient.createAndSubmitOrder({
+        makerToken: state.sell.token.address,
+        takerToken: state.buy.token.address,
+        makerAmount,
+        takerAmount,
+      });
+
+      console.log("Order created successfully:", createOrder);
+      toast({
+        title: "Order created successfully",
+        className: "border-2 border-green-500",
+      });
+    } catch (error) {
+      console.error("Order creation failed:", error);
+      toast({
+        title: "Order creation failed",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to create limit order",
+        className: "border-2 border-red-500",
+      });
+    } finally {
+      setLoading((prev) => ({ ...prev, creatingOrder: false }));
+    }
+  }, [address, makerClient, state.sell, state.buy, getTokenInfo]);
 
   return (
     <section
@@ -1308,7 +1112,7 @@ const LimitOrderForm = () => {
                     </div>
                   </div>
 
-                  <div className="bg-[#191918] p-4 rounded-lg sm:flex-[1]">
+                  {/* <div className="bg-[#191918] p-4 rounded-lg sm:flex-[1]">
                     <div className="text-sm text-white font-medium mb-2">
                       Expiry
                     </div>
@@ -1347,10 +1151,10 @@ const LimitOrderForm = () => {
                         </option>
                       ))}
                     </select>
-                  </div>
+                  </div> */}
                 </div>
 
-                {isCustomExpiry && (
+                {/* {isCustomExpiry && (
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-300 mb-2">
                       Custom Expiry Duration
@@ -1384,7 +1188,7 @@ const LimitOrderForm = () => {
                       </p>
                     )}
                   </div>
-                )}
+                )} */}
 
                 {info && (
                   <div className="text-xs text-yellow-500 border border-yellow-600 rounded-md p-3">
@@ -1412,7 +1216,6 @@ const LimitOrderForm = () => {
                     }}
                     disabled={
                       !enteredAmount ||
-                      !state.limitPrice ||
                       loading.initiatingOrder ||
                       loading.creatingOrder ||
                       buttonLoading ||
@@ -1533,6 +1336,7 @@ const LimitOrderForm = () => {
                   <Button
                     onClick={() => {
                       // submitLimitOrder();
+                      handleCreateOrder();
                       setPreviewOpen(false);
                     }}
                     variant={"default"}
@@ -1553,67 +1357,6 @@ const LimitOrderForm = () => {
             </Dialog>
           </div>
         </div>
-
-        {showOrders && (
-          <>
-            {/* Inline for md and above */}
-            <div className="hidden lg:block lg:flex-1">
-              <OrderList
-                title="My Orders"
-                activeTab={activeTab}
-                setActiveTab={setActiveTab}
-                textClass={montserrat_alternates.className}
-                loading={loading}
-                orders={orders}
-                statusClassMap={statusClassMap}
-                getTokenInfo={getTokenInfo}
-                fetchOrders={fetchOrders}
-                handleInitCancel={handleInitCancel}
-                publicKey={address!}
-                handleInitCancelOrderOfASpecificToken={
-                  handleInitCancelOrderOfASpecificToken
-                }
-                cancellingOrderId={cancellingOrderId ?? ""}
-                tokenList={tokenList}
-              />
-            </div>
-
-            {/* Modal for small screens */}
-            <div className="fixed inset-0 bg-black bg-opacity-80 z-50 flex items-center justify-center lg:hidden">
-              <div className="bg-[#262626] w-full max-w-md mx-auto rounded-lg h-[90vh] z-20">
-                <div className="flex justify-between items-center p-4 border-b border-zinc-700">
-                  <button
-                    onClick={() => setShowOrders(false)}
-                    className="text-white bg-zinc-700 px-3 py-1 rounded-md"
-                  >
-                    Close
-                  </button>
-                </div>
-
-                <div>
-                  <OrderList
-                    title="My Orders"
-                    activeTab={activeTab}
-                    setActiveTab={setActiveTab}
-                    textClass={montserrat_alternates.className}
-                    loading={loading}
-                    orders={orders}
-                    statusClassMap={statusClassMap}
-                    getTokenInfo={getTokenInfo}
-                    fetchOrders={fetchOrders}
-                    handleInitCancel={handleInitCancel}
-                    publicKey={address!}
-                    handleInitCancelOrderOfASpecificToken={
-                      handleInitCancelOrderOfASpecificToken
-                    }
-                    cancellingOrderId={cancellingOrderId ?? ""}
-                    tokenList={tokenList}
-                  />
-                </div>
-              </div>
-            </div>
-          </>
-        )}
       </section>
     </section>
   );

@@ -41,3 +41,4 @@ export const DYNAMIC_POINT_LIST = [
 ];
 
 export const MAINNET_API_URL = "https://evm-api.deserialize.xyz/BASE";
+export const LIMIT_ORDER_SERVER = "https://limit-engine.deserialize.xyz/api/v1";

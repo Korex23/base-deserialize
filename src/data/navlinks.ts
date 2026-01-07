@@ -3,7 +3,7 @@ import { GiBridge } from "react-icons/gi";
 
 export const NavLinks = [
   { name: "Trade", links: ["/", "/limit-order"], tag: "Hot" },
-  { name: "Perp Dex", links: ["https://og.deserialize.xyz/"], tag: "Soon" },
+  // { name: "Perp Dex", links: ["https://og.deserialize.xyz/"], tag: "Soon" },
   { name: "Token Screener", links: ["/token-screener"], tag: "Soon" },
   {
     name: "Bridge",
@@ -24,12 +24,12 @@ export const MobileNavLinks = [
     tag: "Hot",
     icon: Repeat,
   },
-  {
-    name: "Perp Dex",
-    links: ["https://og.deserialize.xyz/"],
-    tag: "Soon",
-    icon: CandlestickChartIcon,
-  },
+  // {
+  //   name: "Perp Dex",
+  //   links: ["https://og.deserialize.xyz/"],
+  //   tag: "Soon",
+  //   icon: CandlestickChartIcon,
+  // },
   {
     name: "Token Screener",
     links: ["/token-screener"],

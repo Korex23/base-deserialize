@@ -1,84 +1,110 @@
-import { JsonRpcProvider, Contract, isAddress } from "ethers";
+export const runtime = "edge"; // ⚡ Ultra-low memory, no cold starts
 
-const provider = new JsonRpcProvider(process.env.BASE_RPC_URL);
-const ERC20_ABI = [
-  "function decimals() view returns (uint8)",
-  "function symbol() view returns (string)",
-  "function balanceOf(address) view returns (uint)",
-];
+const RPC_URL = process.env.BASE_RPC_URL;
+const ERC20_ABI = {
+  balanceOf: "0x70a08231",
+  decimals: "0x313ce567",
+  symbol: "0x95d89b41",
+};
+
+function isHexAddress(addr: string) {
+  return /^0x[a-fA-F0-9]{40}$/.test(addr);
+}
+
+async function rpc(method: string, params: any[]) {
+  const res = await fetch(RPC_URL!, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      id: 1,
+      jsonrpc: "2.0",
+      method,
+      params,
+    }),
+  });
+
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message);
+  return data.result;
+}
+
+// Helper for eth_call
+async function ethCall(to: string, data: string) {
+  return await rpc("eth_call", [{ to, data }, "latest"]);
+}
+
+// Decode hex → uint
+function hexToUint(hex: string) {
+  return BigInt(hex || "0x0").toString();
+}
+
+// Decode hex string
+function hexToString(hex: string) {
+  if (!hex || hex === "0x") return "";
+  const bytes = hex.replace(/^0x/, "");
+  const str = Buffer.from(bytes, "hex").toString("utf8").replace(/\0+$/, "");
+  return str;
+}
 
 export async function POST(req: Request) {
   try {
     const { tokenAddress, walletAddress } = await req.json();
 
-    if (!isAddress(walletAddress)) {
+    if (!isHexAddress(walletAddress)) {
       return new Response(JSON.stringify({ error: "Invalid wallet" }), {
         status: 400,
       });
     }
 
-    if (!isAddress(tokenAddress)) {
+    if (!isHexAddress(tokenAddress)) {
       return new Response(JSON.stringify({ error: "Invalid token address" }), {
         status: 400,
       });
     }
 
-    // Check if contract exists at the address
-    const code = await provider.getCode(tokenAddress);
+    // Check contract existence
+    const code = await rpc("eth_getCode", [tokenAddress, "latest"]);
     if (code === "0x") {
       return new Response(
-        JSON.stringify({
-          error: "Token contract does not exist",
-        }),
+        JSON.stringify({ error: "Token contract does not exist" }),
         {
           status: 404,
-          headers: { "Content-Type": "application/json" },
         }
       );
     }
 
-    const contract = new Contract(tokenAddress, ERC20_ABI, provider);
+    // Prepare call data
+    const walletPadded = walletAddress
+      .toLowerCase()
+      .replace("0x", "")
+      .padStart(64, "0");
 
-    const [balance, symbol, decimals] = await Promise.all([
-      contract.balanceOf(walletAddress),
-      contract.symbol(),
-      contract.decimals(),
+    const balanceData = ERC20_ABI.balanceOf + walletPadded;
+    const decimalsData = ERC20_ABI.decimals;
+    const symbolData = ERC20_ABI.symbol;
+
+    // Parallel calls
+    const [balanceHex, symbolHex, decimalsHex] = await Promise.all([
+      ethCall(tokenAddress, balanceData),
+      ethCall(tokenAddress, symbolData),
+      ethCall(tokenAddress, decimalsData),
     ]);
 
-    // ✅ Convert BigInt -> string manually
     const result = {
-      balance: balance ? balance.toString() : "0",
-      symbol,
-      decimals: Number(decimals),
+      balance: hexToUint(balanceHex),
+      symbol: hexToString(symbolHex),
+      decimals: Number(hexToUint(decimalsHex)),
     };
 
-    // ✅ Safe JSON serialization
     return new Response(JSON.stringify(result), {
       headers: { "Content-Type": "application/json" },
     });
   } catch (err: any) {
-    console.error("❌ Error in /api/token-info:", err);
-
-    // Handle specific contract errors
-    if (
-      err.code === "CALL_EXCEPTION" ||
-      err.message?.includes("call revert exception")
-    ) {
-      return new Response(
-        JSON.stringify({ error: "Token contract is not a valid ERC20 token" }),
-        {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-        }
-      );
-    }
+    console.error("❌ /api/token-info error:", err);
 
     return new Response(
       JSON.stringify({ error: "Failed to fetch token information" }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      }
+      { status: 500 }
     );
   }
 }

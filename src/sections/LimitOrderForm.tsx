@@ -46,14 +46,7 @@ import { useAccount, useToken, useWalletClient } from "wagmi";
 import { useWallet } from "@/context/user-wallet-provider";
 import { TokenAsset } from "@/types/limit-order";
 import { MAINNET_API_URL, LIMIT_ORDER_SERVER } from "@/lib/constant";
-import {
-  LimitOrderMaker,
-  LimitOrderClient,
-  LimitOrderAbi,
-  BASE_LIMIT_ORDER_CONFIG,
-} from "@deserialize/evm-limit-sdk";
-import { base } from "viem/chains";
-import { ethers, JsonRpcProvider, parseEther, parseUnits } from "ethers";
+import { ethers, parseUnits } from "ethers";
 import { useLimitOrderClients } from "@/hooks/useLimitOrderClient";
 import { useTokenPrice } from "@/hooks/useTokenPrice";
 
